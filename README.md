@@ -6,12 +6,12 @@ This project makes use of discord bots to provide terminal access to a host serv
 ### Usage and Functionality
 The application makes use of two discord bots:
 <br>
-1. Michelle: Operates on the host server. Run via `$ ./runner.sh`.Executes messages from discord as commands on the host server terminal and returns any stdout back to the discord channel. Accepts special commands "ping", "pull", "push", "hello" (TODO), and "chess" (TODO) as follows:
+1. Michelle: Operates on the host server. Run via `$ ./runner.sh`.Executes messages from discord as commands on the host server terminal and returns any stdout back to the discord channel. Accepts special commands "ping", "pull", "push", "hello" (TODO), and "chess" as follows:
    1. `!ping` returns "pong!"
    2. `!pull <host_path> <client_path>` enters subroutine to send every file at or under location `host_path` as an attachment or series of attachments. Sends `DONE_MESSAGE` in separate message at end. `host_path` may be file or directory, `client_path` must be same type.
    3. `!push <host_filepath> [!has attachment]` saves the attachment at location `host_filepath`. Responds with `DONE_MSG` (no stdout).
    4. `!hello` starts ollama module to communicate with Michelle as a normal chat assistant (TODO).
-   5. `!chess` starts stockfish module to play chess with Michelle in chat (TODO).
+   5. `!chess` starts stockfish module to play chess with Michelle in chat. Options `-c` for color and `-p` for performance (max 20). Send `!end` to close stockfish.
 
 <br>
 

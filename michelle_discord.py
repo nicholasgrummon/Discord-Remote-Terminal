@@ -120,7 +120,7 @@ async def chess(message, args):
 async def on_message(message):
     """Route non-keyword-command messages that begin with $ to the host server terminal"""
     global chess_mode
-    args = message.content.lower().split()
+    args = message.content.split()
 
     # ignore own messages
     if message.author == michelle.user:
