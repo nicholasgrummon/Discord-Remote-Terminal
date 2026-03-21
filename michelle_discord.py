@@ -11,17 +11,22 @@ from discord.ext import commands
 from stockfish import Stockfish
 import random
 
+import ollama
+
 # ── GLOBALS ────────────────────────────────────────────────────────────────
 
-DONE_MSG = "done"
-NO_ATTACH_MSG = "no attachment"
-MICHELLE_DISCORD_TOKEN = os.getenv("MICHELLE_DISCORD_TOKEN")
+DONE_MSG                = "done"
+NO_ATTACH_MSG           = "no attachment"
+MICHELLE_DISCORD_TOKEN  = os.getenv("MICHELLE_DISCORD_TOKEN")
 
-STOCKFISH = Stockfish("/usr/games/stockfish")
-CHESS_START_MSG = "Let's play!"
-BAD_MOVE_MSG = "illegal move"
-SHOW_BRD_MSG = "show"
-chess_mode = False
+chess_mode              = False
+STOCKFISH               = Stockfish("/usr/games/stockfish")
+CHESS_START_MSG         = "Let's play!"
+BAD_MOVE_MSG            = "illegal move"
+SHOW_BRD_MSG            = "show"
+
+chat_mode               = False
+BEGIN_CHAT_MSG          = "Let's chat!"
 
 # ── Bot setup ────────────────────────────────────────────────────────────────
 
@@ -90,10 +95,7 @@ async def push(message, host_filepath):
 
 # ── Plug-In Apps ──────────────────────────────────────────────────────────
 
-async def chess(message, args):
-    global chess_mode
-    chess_mode = True
-    
+async def begin_chess(message, args):
     # assign performance rating
     performance = args[args.index("-p") + 1] if "-p" in args else 20
     STOCKFISH.update_engine_parameters({"Skill Level": int(performance)})
@@ -112,14 +114,13 @@ async def chess(message, args):
         STOCKFISH.make_moves_from_current_position([sf_move])
         await message.channel.send(CHESS_START_MSG + f" I play {sf_move}:")
 
-
-
 # ── Events ────────────────────────────────────────────────────────────────────
 
 @michelle.event
 async def on_message(message):
     """Route non-keyword-command messages that begin with $ to the host server terminal"""
     global chess_mode
+    global chat_mode
     args = message.content.split()
 
     # ignore own messages
@@ -147,14 +148,18 @@ async def on_message(message):
         await push(message, args[1])
 
     elif args[0] == "!hello":
-        pass
+        chat_mode = True
+        await message.channel.send(BEGIN_CHAT_MSG)
 
     elif args[0] == "!chess":
-        await chess(message, args)
+        chess_mode = True
+        await begin_chess(message, args)
     
     elif args[0] == "!end":
-        STOCKFISH.send_quit_command()
         chess_mode = False
+        STOCKFISH.send_quit_command()
+
+        chat_mode = False
         await message.channel.send(DONE_MSG)
 
     # plaintext messages
@@ -171,6 +176,11 @@ async def on_message(message):
 
         else:
             await message.channel.send(BAD_MOVE_MSG)
+    
+    elif chat_mode:
+        response = ollama.chat(model="Michelle_v0", messages=[{'role': 'user', 'content':message.content}])
+        await message.channel.send(response.message.content)
+        return
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
