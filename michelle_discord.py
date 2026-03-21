@@ -6,11 +6,22 @@ import subprocess
 import discord
 from discord.ext import commands
 
-# ── Constants ────────────────────────────────────────────────────────────────
+# ── Plug-Ins ────────────────────────────────────────────────────────────────
+
+from stockfish import Stockfish
+import random
+
+# ── GLOBALS ────────────────────────────────────────────────────────────────
 
 DONE_MSG = "done"
 NO_ATTACH_MSG = "no attachment"
 MICHELLE_DISCORD_TOKEN = os.getenv("MICHELLE_DISCORD_TOKEN")
+
+STOCKFISH = Stockfish("/usr/games/stockfish")
+CHESS_START_MSG = "Let's play!"
+BAD_MOVE_MSG = "illegal move"
+SHOW_BRD_MSG = "show"
+chess_mode = False
 
 # ── Bot setup ────────────────────────────────────────────────────────────────
 
@@ -77,12 +88,40 @@ async def push(message, host_filepath):
     
     await message.channel.send(DONE_MSG)
 
+# ── Plug-In Apps ──────────────────────────────────────────────────────────
+
+async def chess(message, args):
+    global chess_mode
+    chess_mode = True
+    
+    # assign performance rating
+    performance = args[args.index("-p") + 1] if "-p" in args else 20
+    STOCKFISH.update_engine_parameters({"Skill Level": int(performance)})
+    STOCKFISH.make_moves_from_start()
+
+    # assign color
+    color = args[args.index("-c") + 1] if "-c" in args else "w"
+    if color == "r" or color == "random":
+        color = ["w", "b"][random.randint(0,1)]
+
+    if color == "w" or color == "white":
+        await message.channel.send(CHESS_START_MSG + " You start with white.")
+
+    elif color == "b" or color == "black":
+        sf_move = STOCKFISH.get_best_move()
+        STOCKFISH.make_moves_from_current_position([sf_move])
+        await message.channel.send(CHESS_START_MSG + f" I play {sf_move}:")
+
+
 
 # ── Events ────────────────────────────────────────────────────────────────────
 
 @michelle.event
 async def on_message(message):
     """Route non-keyword-command messages that begin with $ to the host server terminal"""
+    global chess_mode
+    args = message.content.lower().split()
+
     # ignore own messages
     if message.author == michelle.user:
         return
@@ -94,29 +133,45 @@ async def on_message(message):
         output = result.stdout.decode().strip()
         await message.channel.send(output if output else DONE_MSG)
     
-    elif message.content.split()[0] == "!ping":
+    elif args[0] == "!ping":
         await message.channel.send("pong!")
 
-    elif message.content.split()[0] == "!pull":
-        args = message.content.split()
+    elif args[0] == "!pull":
         if len(args) > 2:
             await pull(message, args[1], args[2])
         else:
             await pull(message, args[1], ".")
 
-    elif message.content.split()[0] == "!push":
+    elif args[0] == "!push":
         args = message.content.split()
         await push(message, args[1])
 
-    elif message.content.split()[0] == "!hello":
+    elif args[0] == "!hello":
         pass
 
-    elif message.content.split()[0] == "!chess":
-        pass
+    elif args[0] == "!chess":
+        await chess(message, args)
+    
+    elif args[0] == "!end":
+        STOCKFISH.send_quit_command()
+        chess_mode = False
+        await message.channel.send(DONE_MSG)
 
-    # ignore plaintext messages
-    else:
-        pass
+    # plaintext messages
+    elif chess_mode:
+        if args[0] == "!show":
+            await message.channel.send(STOCKFISH.get_board_visual())
+
+        elif STOCKFISH.is_move_legal(args[0]):
+            STOCKFISH.make_moves_from_current_position([args[0]])
+            sf_move = STOCKFISH.get_best_move()
+            STOCKFISH.make_moves_from_current_position([sf_move])
+
+            await message.channel.send(sf_move)
+
+        else:
+            await message.channel.send(BAD_MOVE_MSG)
+
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 

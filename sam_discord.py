@@ -1,4 +1,4 @@
-'''Run Sam from anywhere. Sam communicates with Michelle, who forwards my Linux terminal'''
+"""sam_discord.py - Sam is run on client."""
 
 import sys
 import os
