@@ -5,29 +5,43 @@ import os
 import discord
 from discord.ext import commands
 
-SPECIAL_COMMANDS = ["push", "pull", "ping"]
+# ── Constants ────────────────────────────────────────────────────────────────
+
 DONE_MSG = "done"
+COMMAND = " ".join(sys.argv[1:])
+SAM_DISCORD_TOKEN = os.getenv('SAM_DISCORD_TOKEN')
 
-# read command for sam to pass
-command = " ".join(sys.argv[1:])
+# ── Bot setup ────────────────────────────────────────────────────────────────
 
-# create instance of Bot class
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
-sam = commands.Bot(command_prefix='', intents=intents)
+sam = discord.Client(intents=intents)
 
-async def send_worker(channel, self_path, other_path):
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+async def client_send_worker(channel, self_path, other_path):
+    """Recursively send a file or directory tree to a Discord channel.
+
+    Args:
+        channel:    The Discord channel to send files to.
+        self_path:  Local path of the file or directory to send.
+        other_path: Corresponding destination path sent as message content.
+    """ 
     if os.path.isfile(self_path):
         file = discord.File(self_path)
         await channel.send(file=file, content=f"!push {other_path}")
 
     elif os.path.isdir(self_path): 
         for item in os.listdir(self_path):
-            await send_worker(channel, "/".join([self_path, item]), "/".join([other_path, item]))
+            await client_send_worker(
+                channel,
+                "/".join([self_path, item]),
+                "/".join([other_path, item])
+            )
 
+# ── Events ────────────────────────────────────────────────────────────────────
 
-# on ready
 @sam.event
 async def on_ready():
     channel_id = 1483247531235479665
@@ -36,13 +50,13 @@ async def on_ready():
     if sys.argv[1] == "push":
         self_basepath = sys.argv[2]
         other_basedirpath = sys.argv[3]
-        await send_worker(channel, self_basepath, other_basedirpath)
+        await client_send_worker(channel, self_basepath, other_basedirpath)
 
     elif sys.argv[1] == "pull":
-        await channel.send("!" + command)
+        await channel.send("!" + COMMAND)
     
     else:
-        await channel.send("$" + command)
+        await channel.send("$" + COMMAND)
 
 
 @sam.event
@@ -51,26 +65,19 @@ async def on_message(message):
     if message.author == sam.user:
         return
     
-    if message.content == DONE_MSG:
+    # close client if transmission done
+    elif message.content == DONE_MSG:
         await sam.close()
 
-    else:
-        try:
-            for attachment in message.attachments:
-                filepath = message.content
-                dirpath = os.path.dirname(filepath)
+    # save files received from pull
+    elif message.attachments:
+        for attachment in message.attachments:
+            filepath = message.content
+            dirpath = os.path.dirname(filepath)
 
-                if not os.path.exists(dirpath):
-                    os.makedirs(dirpath)
+            os.makedirs(dirpath, exist_ok=True)
+            await attachment.save(filepath)
 
-                with open(filepath, 'w') as _:
-                    pass
-
-                await attachment.save(filepath)
-        
-        except Exception:
-            pass
 
 # run the bot with your token
-SAM_DISCORD_TOKEN = os.getenv('MICHELLE_DISCORD_TOKEN')
 sam.run(SAM_DISCORD_TOKEN)
