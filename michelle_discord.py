@@ -2,9 +2,10 @@
 
 import os
 import subprocess
+import asyncio
 
 import discord
-from discord.ext import commands
+from discord.ext import tasks
 
 # ── Plug-Ins ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,8 @@ SHOW_BRD_MSG            = "show"
 
 chat_mode               = False
 BEGIN_CHAT_MSG          = "Let's chat!"
+OLLAMA_MODEL            = "Michelle_v1"
+message_log		        = []
 
 # ── Bot setup ────────────────────────────────────────────────────────────────
 
@@ -114,6 +117,14 @@ async def begin_chess(message, args):
         STOCKFISH.make_moves_from_current_position([sf_move])
         await message.channel.send(CHESS_START_MSG + f" I play {sf_move}:")
 
+
+# ── Tasks ────────────────────────────────────────────────────────────────────
+
+@tasks.loop(minutes=4)
+async def keep_ollama_alive():
+    ollama.chat(model=OLLAMA_MODEL, messages=[{"role":"user", "content":"ping"}])
+
+
 # ── Events ────────────────────────────────────────────────────────────────────
 
 @michelle.event
@@ -121,6 +132,7 @@ async def on_message(message):
     """Route non-keyword-command messages that begin with $ to the host server terminal"""
     global chess_mode
     global chat_mode
+    global message_log
     args = message.content.split()
 
     # ignore own messages
@@ -178,9 +190,36 @@ async def on_message(message):
             await message.channel.send(BAD_MOVE_MSG)
     
     elif chat_mode:
-        response = ollama.chat(model="Michelle_v0", messages=[{'role': 'user', 'content':message.content}])
-        await message.channel.send(response.message.content)
-        return
+        message_log.append({'role': 'user', 'content': message.content})
+
+        # Send a placeholder to edit into as chunks arrive
+        reply_msg = await message.channel.send("…")
+        buffer = ""
+        last_flush = asyncio.get_event_loop().time()
+        FLUSH_INTERVAL = 0.8  # seconds between edits to stay under rate limits
+
+        loop = asyncio.get_event_loop()
+
+        def stream_ollama():
+            return ollama.chat(model=OLLAMA_MODEL, messages=message_log, stream=True)
+
+        stream = await loop.run_in_executor(None, stream_ollama)
+
+        for chunk in stream:
+            token = chunk['message']['content']
+            buffer += token
+            now = loop.time()
+            if now - last_flush >= FLUSH_INTERVAL and buffer.strip():
+                await reply_msg.edit(content=buffer)
+                last_flush = now
+
+        # Final edit with the complete response
+        if buffer.strip():
+            await reply_msg.edit(content=buffer)
+        elif not buffer:
+            await reply_msg.edit(content=DONE_MSG)
+
+        message_log.append({'role': 'assistant', 'content': buffer})
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
