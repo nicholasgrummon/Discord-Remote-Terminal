@@ -29,6 +29,7 @@ SHOW_BRD_MSG            = "show"
 chat_mode               = False
 BEGIN_CHAT_MSG          = "Let's chat!"
 OLLAMA_MODEL            = "Michelle_v1"
+CONDENSER_MODEL         = "llama3.1:8b"
 message_log		        = []
 
 # ── Bot setup ────────────────────────────────────────────────────────────────
@@ -118,6 +119,25 @@ async def begin_chess(message, args):
         await message.channel.send(CHESS_START_MSG + f" I play {sf_move}:")
 
 
+async def condense_context():
+    global message_log
+    instructions = "Condense all context into 400 characters or less. Preserve all details about user. Do not use complete sentences."
+    message_log.append({"role": "user", "content": instructions})
+
+    loop = asyncio.get_event_loop()
+    condensed_log = await loop.run_in_executor(
+        None,
+        lambda: ollama.chat(model=CONDENSER_MODEL, messages=message_log)
+    )
+
+    message_log = condensed_log.message
+    os.makedirs("outs", exist_ok=True)
+    with open("outs/chat_log.txt", "w") as file:
+        file.write(message_log)
+    
+    return
+
+
 # ── Tasks ────────────────────────────────────────────────────────────────────
 
 @tasks.loop(minutes=4)
@@ -172,6 +192,7 @@ async def on_message(message):
         STOCKFISH.send_quit_command()
 
         chat_mode = False
+        await condense_context()
         await message.channel.send(DONE_MSG)
 
     # plaintext messages
@@ -193,33 +214,16 @@ async def on_message(message):
         message_log.append({'role': 'user', 'content': message.content})
 
         # Send a placeholder to edit into as chunks arrive
-        reply_msg = await message.channel.send("…")
-        buffer = ""
-        last_flush = asyncio.get_event_loop().time()
-        FLUSH_INTERVAL = 0.8  # seconds between edits to stay under rate limits
+        await message.channel.typing()
 
         loop = asyncio.get_event_loop()
-
-        def stream_ollama():
-            return ollama.chat(model=OLLAMA_MODEL, messages=message_log, stream=True)
-
-        stream = await loop.run_in_executor(None, stream_ollama)
-
-        for chunk in stream:
-            token = chunk['message']['content']
-            buffer += token
-            now = loop.time()
-            if now - last_flush >= FLUSH_INTERVAL and buffer.strip():
-                await reply_msg.edit(content=buffer)
-                last_flush = now
-
-        # Final edit with the complete response
-        if buffer.strip():
-            await reply_msg.edit(content=buffer)
-        elif not buffer:
-            await reply_msg.edit(content=DONE_MSG)
-
-        message_log.append({'role': 'assistant', 'content': buffer})
+        response = await loop.run_in_executor(
+            None,
+            lambda: ollama.chat(model=OLLAMA_MODEL, messages=message_log)
+        )
+        message_log.append(response.message)
+        await message.channel.send(response.message.content)
+        return
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
