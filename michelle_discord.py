@@ -28,8 +28,11 @@ SHOW_BRD_MSG            = "show"
 
 chat_mode               = False
 BEGIN_CHAT_MSG          = "Let's chat!"
-OLLAMA_MODEL            = "Michelle_v1"
+OLLAMA_MODEL            = "Michelle_v2"
+ONLOAD_PROMPT           = "I know the following from past conversations: "
 CONDENSER_MODEL         = "llama3.1:8b"
+CONDENSE_MSG            = "Summarize all message history. Be as brief as possible. Always specify the subject."
+CHATLOG_PATH            = "outs/chat_log.txt"
 message_log		        = []
 
 # ── Bot setup ────────────────────────────────────────────────────────────────
@@ -119,10 +122,16 @@ async def begin_chess(message, args):
         await message.channel.send(CHESS_START_MSG + f" I play {sf_move}:")
 
 
+async def end_chess():
+    global chess_mode, STOCKFISH
+    chess_mode = False
+    STOCKFISH.send_quit_command()
+    return
+
+
 async def condense_context():
     global message_log
-    instructions = "Condense all context into 400 characters or less. Preserve all details about user. Do not use complete sentences."
-    message_log.append({"role": "user", "content": instructions})
+    message_log.append({"role": "user", "content": CONDENSE_MSG})
 
     loop = asyncio.get_event_loop()
     condensed_log = await loop.run_in_executor(
@@ -132,9 +141,23 @@ async def condense_context():
 
     message_log = condensed_log.message
     os.makedirs("outs", exist_ok=True)
-    with open("outs/chat_log.txt", "w") as file:
-        file.write(message_log)
+    with open(CHATLOG_PATH, "w") as file:
+        file.write(message_log.content)
     
+    return
+
+async def load_context():
+    global message_log
+    if os.path.exists(CHATLOG_PATH):
+        with open(CHATLOG_PATH, "r") as file:
+            inject_memory_msg = ONLOAD_PROMPT + file.read()
+            message_log.append({"role": "assistant", "content": inject_memory_msg})
+
+
+async def end_chat():
+    global chat_mode
+    chat_mode = False
+    await condense_context()
     return
 
 
@@ -181,6 +204,7 @@ async def on_message(message):
 
     elif args[0] == "!hello":
         chat_mode = True
+        await load_context()
         await message.channel.send(BEGIN_CHAT_MSG)
 
     elif args[0] == "!chess":
@@ -188,11 +212,17 @@ async def on_message(message):
         await begin_chess(message, args)
     
     elif args[0] == "!end":
-        chess_mode = False
-        STOCKFISH.send_quit_command()
-
-        chat_mode = False
-        await condense_context()
+        if len(args) > 1:
+            if args[1] == "chess":
+                await end_chess()
+                
+            elif args[1] == "chat":
+                await end_chat()
+        
+        else:
+            await end_chess()
+            await end_chat()
+        
         await message.channel.send(DONE_MSG)
 
     # plaintext messages
