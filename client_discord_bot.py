@@ -1,4 +1,4 @@
-"""sam_discord.py - Sam is run on client."""
+"""client_discord_bot.py - run on client."""
 
 import sys
 import os
@@ -9,14 +9,14 @@ from discord.ext import commands
 
 DONE_MSG = "done"
 COMMAND = " ".join(sys.argv[1:])
-SAM_DISCORD_TOKEN = os.getenv('SAM_DISCORD_TOKEN')
+CLIENT_BOT_TOKEN = os.getenv('SAM_DISCORD_TOKEN')
 
 # ── Bot setup ────────────────────────────────────────────────────────────────
 
 intents = discord.Intents.default()
 intents.messages = True
 intents.message_content = True
-sam = discord.Client(intents=intents)
+client_bot = discord.Client(intents=intents)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -42,10 +42,10 @@ async def client_send_worker(channel, self_path, other_path):
 
 # ── Events ────────────────────────────────────────────────────────────────────
 
-@sam.event
+@client_bot.event
 async def on_ready():
     channel_id = 1483247531235479665
-    channel = sam.get_channel(channel_id)
+    channel = client_bot.get_channel(channel_id)
 
     if sys.argv[1] == "push":
         self_basepath = sys.argv[2]
@@ -59,15 +59,15 @@ async def on_ready():
         await channel.send("$" + COMMAND)
 
 
-@sam.event
+@client_bot.event
 async def on_message(message):
     # ignore own messages
-    if message.author == sam.user:
+    if message.author == client_bot.user:
         return
     
     # close client if transmission done
     elif message.content == DONE_MSG:
-        await sam.close()
+        await client_bot.close()
 
     # save files received from pull
     elif message.attachments:
@@ -80,4 +80,4 @@ async def on_message(message):
 
 
 # run the bot with your token
-sam.run(SAM_DISCORD_TOKEN)
+client_bot.run(CLIENT_BOT_TOKEN)
