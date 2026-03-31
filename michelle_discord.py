@@ -35,6 +35,9 @@ CONDENSE_MSG            = "Summarize all message history. Be as brief as possibl
 CHATLOG_PATH            = "outs/chat_log.txt"
 message_log		        = []
 
+speaking_mode           = False
+VOICE                   = "tts/en_US-libritts_r-medium"
+
 # ── Bot setup ────────────────────────────────────────────────────────────────
 
 intents = discord.Intents.default()
@@ -154,9 +157,17 @@ async def load_context():
             message_log.append({"role": "assistant", "content": inject_memory_msg})
 
 
+async def speak(script, volume=0.2):
+    script = script.replace('"', '\\"').replace("'", "\\'") # remove any unterminated quotes
+    speak_command = f"echo {script} | python -m piper -m {VOICE} --volume {volume} --sentence-silence 0.5 --length-scale 1.2"
+    print(speak_command)
+    subprocess.run(speak_command, shell=True)
+
+
 async def end_chat():
-    global chat_mode
+    global chat_mode, speaking_mode
     chat_mode = False
+    speaking_mode = False
     await condense_context()
     return
 
@@ -176,6 +187,7 @@ async def on_message(message):
     global chess_mode
     global chat_mode
     global message_log
+    global speaking_mode
     args = message.content.split()
 
     # ignore own messages
@@ -204,6 +216,9 @@ async def on_message(message):
 
     elif args[0] == "!hello":
         chat_mode = True
+        if len(args) > 1 and args[1] == "-speak":
+            speaking_mode = True
+
         await load_context()
         await message.channel.send(BEGIN_CHAT_MSG)
 
@@ -253,6 +268,8 @@ async def on_message(message):
         )
         message_log.append(response.message)
         await message.channel.send(response.message.content)
+        if speaking_mode:
+            await speak(response.message.content)
         return
 
 
