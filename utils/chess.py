@@ -22,27 +22,27 @@ async def begin_chess(message, args):
         color = ["w", "b"][random.randint(0,1)]
 
     if color == "w" or color == "white":
-        await message.channel.send(CHESS_START_MSG + " You start with white.")
+        return CHESS_START_MSG + " You start with white."
 
     elif color == "b" or color == "black":
         sf_move = STOCKFISH.get_best_move()
         STOCKFISH.make_moves_from_current_position([sf_move])
-        await message.channel.send(CHESS_START_MSG + f" I play {sf_move}:")
+        return CHESS_START_MSG + f" I play {sf_move}:"
 
 
 async def play_chess(message, args):
     if args[0] == "!show":
-        await message.channel.send(STOCKFISH.get_board_visual())
+        return STOCKFISH.get_board_visual()
 
     elif STOCKFISH.is_move_legal(args[0]):
         STOCKFISH.make_moves_from_current_position([args[0]])
         sf_move = STOCKFISH.get_best_move()
         STOCKFISH.make_moves_from_current_position([sf_move])
 
-        await message.channel.send(sf_move)
+        return sf_move
 
     else:
-        await message.channel.send(BAD_MOVE_MSG)
+        return BAD_MOVE_MSG
 
 
 async def end():
