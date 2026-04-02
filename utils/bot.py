@@ -42,11 +42,13 @@ async def push(message, status, args):
     return status, None
 
 
-# async def begin_chat(message, status, args):
-#     if not status["chat"]:
-#         status["chat"] = True
-#         await michelle.load_context()
-#         return status, args.BEGIN_CHAT_MSG
+async def begin_chat(message, status, args):
+    if not status["chat"]:
+        status["chat"] = True
+        await michelle.load_context()
+        return status, await michelle.begin_chat()
+    
+    return status, "chat already active"
 
 
 async def begin_chess(message, status, args):
@@ -61,14 +63,14 @@ async def end(message, status, args):
     if len(args) > 1:
         match args[1]:
             case "chess": status["chess"] = False; await chess.end()
-            # case "chat": status["chat"] = False; await michelle.end()
+            case "chat": status["chat"] = False; await michelle.end()
     
     else:
-        status = dict.fromkeys(status, False)
+        status = {"chess": False, "chat": False, "voice":False}
         await chess.end()
-        # await michelle.end()
+        await michelle.end()
     
-    return None
+    return status, None
     
 
 # ── Handlers ──────────────────────────────────────────────────────────────
@@ -76,7 +78,7 @@ handlers = {
     "!ping": ping,
     "!pull": pull,
     "!push": push,
-    # "!hello": begin_chat,
+    "!hello": begin_chat,
     "!chess": begin_chess,
     "!end": end
 }

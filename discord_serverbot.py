@@ -8,7 +8,7 @@ from discord.ext import tasks
 
 from utils import bot
 from utils import chess
-from utils.michelle import Michelle
+from utils import michelle
 
 # ── GLOBALS ────────────────────────────────────────────────────────────────
 
@@ -24,10 +24,6 @@ intents.messages = True
 intents.message_content = True
 server_bot = discord.Client(intents=intents)
 
-# ── OLLAMA SETUP ───────────────────────────────────────────────────────────
-
-michelle = Michelle()
-
 # ── Events ─────────────────────────────────────────────────────────────────
 
 @server_bot.event
@@ -40,6 +36,9 @@ async def on_message(message):
     if message.author == server_bot.user:
         return
     
+    # Send typing bubbles
+    await message.channel.typing()
+
     # dispatch shell command messages indicated by "$" leading character
     if message.content[0] == "$":
         shell_command = message.content[1:].strip()
@@ -55,27 +54,22 @@ async def on_message(message):
             status, response = await bot_command(message, status, args)
             await message.channel.send(response if response else DONE_MSG)
 
-        except Exception:
+        except Exception as e:
             await message.channel.send("invalid command")
         finally:
             return
 
     # handle plaintext messages
     if status["chess"]:
-        await chess.play_chess(message, args)
+        await message.channel.send(await chess.play_chess(str(args[0]).lower()))
     
     elif status["chat"]:
-        michelle.append_chatlog("user", message.content)
-
-        # Send a placeholder to edit into as chunks arrive
-        await message.channel.typing()
+        await michelle.append_chatlog("user", message.content)
         response = await michelle.respond()
         await message.channel.send(response)
 
         if status["voice"]:
             await michelle.speak(response)
-
-        return
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

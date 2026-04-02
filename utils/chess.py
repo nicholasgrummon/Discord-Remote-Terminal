@@ -30,16 +30,15 @@ async def begin_chess(message, args):
         return CHESS_START_MSG + f" I play {sf_move}:"
 
 
-async def play_chess(message, args):
-    if args[0] == "!show":
+async def play_chess(user_move):
+    if user_move == "show":
         return STOCKFISH.get_board_visual()
 
-    elif STOCKFISH.is_move_legal(args[0]):
-        STOCKFISH.make_moves_from_current_position([args[0]])
-        sf_move = STOCKFISH.get_best_move()
-        STOCKFISH.make_moves_from_current_position([sf_move])
-
-        return sf_move
+    elif STOCKFISH.is_move_legal(user_move):
+        STOCKFISH.make_moves_from_current_position([user_move])
+        stockfish_move = STOCKFISH.get_best_move()
+        STOCKFISH.make_moves_from_current_position([stockfish_move])
+        return stockfish_move
 
     else:
         return BAD_MOVE_MSG
