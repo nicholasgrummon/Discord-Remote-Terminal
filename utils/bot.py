@@ -1,6 +1,5 @@
 import os
 import discord
-import subprocess
 
 from utils import michelle
 from utils import chess
@@ -45,6 +44,9 @@ async def push(message, status, args):
 async def begin_chat(message, status, args):
     if not status["chat"]:
         status["chat"] = True
+        if args[1] == "-speak" or args[1] == "-voice":
+            status["voice"] = True
+
         await michelle.load_context()
         return status, await michelle.begin_chat()
     

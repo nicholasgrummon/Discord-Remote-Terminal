@@ -55,7 +55,12 @@ async def respond(memory=True):
 async def speak(script, volume=0.2):
     script = script.replace('"', '\\"').replace("'", "\\'") # remove any unterminated quotes
     speak_command = f"echo {script} | python -m piper -m {VOICE} --volume {volume} --sentence-silence 0.5 --length-scale 1.2"
-    await subprocess.run(speak_command, shell=True)
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None,
+        lambda: subprocess.run(speak_command, shell=True)
+    )
+    
 
 
 async def condense_context():
