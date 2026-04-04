@@ -69,6 +69,8 @@ async def on_message(message):
         await message.channel.send(response)
 
         if status["voice"]:
+            response = response.replace("\n", "").replace("*","")
+
             await michelle.speak(response)
 
 
