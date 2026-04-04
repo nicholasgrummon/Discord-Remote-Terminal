@@ -12,7 +12,7 @@ SPEAKING_MODEL     = "llama3.2:1b"
 VOICE              = "tts/en_US-libritts_r-medium"
 
 CONDENSER_MODEL    = "llama3.1:8b"
-CONDENSE_MSG       = "Summarize all message history. Be as brief as possible. Always specify the subject."
+CONDENSE_MSG       = "Summarize all chat history as concisely as possible. Use the following buckets:\nUser:\n[facts about user - name, occupation, etc]\n[user's moods]\n[user's upcoming plans]\nMyself (Michelle):\n[facts about Michelle]\n[moods of Michelle]\n[Michelle's current tasks]"
 ONLOAD_PROMPT      = "I know the following from past conversations: "
 
 
