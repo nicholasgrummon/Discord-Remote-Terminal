@@ -6,16 +6,17 @@ import subprocess
 import discord
 from discord.ext import tasks
 
-from utils import bot
+from utils import commands
 from utils import chess
-from utils import michelle
+from utils.status import Status
+from michelle import Michelle
 
 # ── GLOBALS ────────────────────────────────────────────────────────────────
 
 SERVER_BOT_TOKEN    = os.getenv("MICHELLE_DISCORD_TOKEN")
 DONE_MSG            = "done"
 
-status              = {"chess": False, "chat": False, "voice": False}
+state              = Status(chess_flag=False, chat_flag=False)
 
 # ── DISCORD SETUP ──────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ server_bot = discord.Client(intents=intents)
 @server_bot.event
 async def on_message(message):
     """Route non-keyword-command messages that begin with $ to the host server terminal"""
-    global status
+    global state
     args = message.content.split()
 
     # ignore own messages
@@ -50,28 +51,24 @@ async def on_message(message):
     # dispatch bot command messages indicated by "!" leading character
     if message.content[0] == "!":
         try:
-            bot_command = bot.handlers.get(args[0])
-            status, response = await bot_command(message, status, args)
+            bot_command = commands.handlers.get(args[0])
+            response, state = await bot_command(message, state, args)
             await message.channel.send(response if response else DONE_MSG)
 
         except Exception as e:
+            print(e)
             await message.channel.send("invalid command")
         finally:
             return
 
     # handle plaintext messages
-    if status["chess"]:
+    if state.chess_flag:
         await message.channel.send(await chess.play_chess(str(args[0]).lower()))
     
-    elif status["chat"]:
-        await michelle.append_chatlog("user", message.content)
-        response = await michelle.respond()
+    elif state.chat_flag:
+        await state.chat_model.add_context("user", message.content)
+        response = await state.chat_model.chat()
         await message.channel.send(response)
-
-        if status["voice"]:
-            response = response.replace("\n", "").replace("*","")
-
-            await michelle.speak(response)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
