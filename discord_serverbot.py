@@ -68,7 +68,7 @@ async def on_message(message):
     elif state.chat_flag:
         await state.chat_model.add_context("user", message.content)
         response = await state.chat_model.chat()
-        await message.channel.send(response)
+        await message.channel.send(response.message.content)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

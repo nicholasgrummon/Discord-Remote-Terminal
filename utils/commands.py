@@ -7,7 +7,9 @@ from michelle import Michelle
 
 # ── GLOBALS ────────────────────────────────────────────────────────────────
 
-CHAT_MODEL = "llama3.1:8b"
+CHAT_MODEL = "qwen3:14b"
+CHAT_SIZE = 15000
+CHAT_TIME = 900
 
 # ── Commands ──────────────────────────────────────────────────────────────
 
@@ -49,7 +51,7 @@ async def push(message, state, args):
 async def begin_chat(message, state, args):
     if not state.chat_flag:
         state.chat_flag = True
-        state.chat_model = Michelle(CHAT_MODEL)
+        state.chat_model = Michelle(CHAT_MODEL, context_size=CHAT_SIZE, keep_alive=CHAT_TIME)
         await state.chat_model.start()
         return "Let's chat", state
     
@@ -63,6 +65,15 @@ async def begin_chess(message, state, args):
         return response, state
     
     return "Chess already active", state
+
+
+async def chat_usage(message, state, args=None):
+    if not state.chat_model:
+        return "No chat session active", state
+
+    used = state.chat_model.estimate_tokens()
+    total = state.chat_model.context_size
+    return f"{used}/{total} tokens ({used / total:.1%} full)", state
 
 
 async def end(message, state, args):
@@ -88,5 +99,6 @@ handlers = {
     "!push": push,
     "!hello": begin_chat,
     "!chess": begin_chess,
+    "!chat-usage": chat_usage,
     "!end": end
 }
