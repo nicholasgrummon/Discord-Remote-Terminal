@@ -29,4 +29,41 @@ To create new discord bots:
 6. In OAuth2 tab, go to generated url to add bot to server
 
 Install python dependencies to host bots as follows: <br>
-`$ python -m pip install -r requirements.txt
+`$ python -m pip install -r requirements.txt`
+
+### Running as a Service
+The server-side bot is set up to run persistently as a `systemd` user service (`discord-serverbot`), so it starts automatically on login/boot and restarts on failure, instead of being run manually via `runner.sh`.
+
+The service unit lives at `~/.config/systemd/user/discord-serverbot.service`:
+```
+[Unit]
+Description=Discord Server Bot (Michelle remote terminal)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ncg/Documents/6_Projects/Discord_Server
+EnvironmentFile=/home/ncg/Documents/6_Projects/Discord_Server/.env
+ExecStart=/home/ncg/Documents/6_Projects/Discord_Server/.venv/bin/python discord_serverbot.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+```
+
+Common commands (no `sudo` needed, since this is a user service):
+- Start: `systemctl --user start discord-serverbot`
+- Stop: `systemctl --user stop discord-serverbot`
+- Restart (e.g. after pulling code changes): `systemctl --user restart discord-serverbot`
+- Check status: `systemctl --user status discord-serverbot`
+- View logs: `journalctl --user -u discord-serverbot -f`
+- Enable/disable autostart on login: `systemctl --user enable|disable discord-serverbot`
+
+For the service to keep running after you log out (e.g. on a headless server), lingering must be enabled for the user: `sudo loginctl enable-linger $USER` (already enabled on this host).
+
+If setting this up on a new machine, create the unit file above (adjusting paths as needed), then run:
+```
+systemctl --user daemon-reload
+systemctl --user enable --now discord-serverbot
+```
